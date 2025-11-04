@@ -1,18 +1,28 @@
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f0f4f8;
-    text-align: center;
-    margin: 0;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: #f3f5f7;
+    color: #333;
     padding: 50px;
+    text-align: center;
 }
 
 h1 {
     color: #2c3e50;
-    font-size: 3em;
     margin-bottom: 20px;
 }
 
-p {
-    color: #34495e;
-    font-size: 1.5em;
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+li {
+    background: #fff;
+    border: 1px solid #ddd;
+    margin: 8px auto;
+    padding: 10px;
+    border-radius: 8px;
+    width: 300px;
+    font-size: 1.1em;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
