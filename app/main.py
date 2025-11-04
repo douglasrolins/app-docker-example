@@ -1,7 +1,9 @@
 import os
 import time
 import psycopg2
+from urllib.parse import parse_qs
 
+# Lê variáveis de ambiente (definidas no .env e repassadas no docker-compose)
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
 DB_NAME = os.getenv("DB_NAME")
@@ -53,17 +55,20 @@ def init_db():
     cur.close()
     conn.close()
 
-def render_products():
-    """Retorna HTML com lista de produtos"""
+
+def render_products(message=None):
+    """Retorna HTML com lista de produtos e formulário"""
     try:
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("SELECT name, price FROM products")
+        cur.execute("SELECT name, price FROM products ORDER BY id DESC")
         rows = cur.fetchall()
         cur.close()
         conn.close()
 
         items = "".join([f"<li>{n} — R$ {p:.2f}</li>" for n, p in rows])
+        msg_html = f"<p class='msg'>{message}</p>" if message else ""
+
         html = f"""
         <html>
             <head>
@@ -73,7 +78,14 @@ def render_products():
             </head>
             <body>
                 <h1>Lista de Produtos</h1>
+                {msg_html}
                 <ul>{items}</ul>
+                <h2>Adicionar novo produto</h2>
+                <form method="POST" action="/add">
+                    <input type="text" name="name" placeholder="Nome" required>
+                    <input type="number" step="0.01" name="price" placeholder="Preço" required>
+                    <button type="submit">Adicionar</button>
+                </form>
             </body>
         </html>
         """
@@ -81,11 +93,45 @@ def render_products():
     except Exception as e:
         return f"<h1>Erro ao acessar o banco: {e}</h1>".encode("utf-8")
 
+
+def add_product(environ):
+    """Lê dados do formulário e insere produto no banco"""
+    try:
+        # Lê o corpo da requisição
+        size = int(environ.get("CONTENT_LENGTH", 0) or 0)
+        body = environ["wsgi.input"].read(size).decode("utf-8")
+        data = parse_qs(body)
+
+        name = data.get("name", [""])[0]
+        price = data.get("price", [""])[0]
+
+        if not name or not price:
+            return render_products("Nome e preço são obrigatórios!")
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("INSERT INTO products (name, price) VALUES (%s, %s)", (name, price))
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return render_products(f"Produto '{name}' adicionado com sucesso!")
+
+    except Exception as e:
+        return render_products(f"Erro ao adicionar produto: {e}")
+
+
 def application(environ, start_response):
     path = environ.get("PATH_INFO", "/")
+    method = environ.get("REQUEST_METHOD", "GET")
 
-    if path == "/":
+    if path == "/" and method == "GET":
         response_body = render_products()
+        status = "200 OK"
+        headers = [("Content-Type", "text/html; charset=utf-8")]
+
+    elif path == "/add" and method == "POST":
+        response_body = add_product(environ)
         status = "200 OK"
         headers = [("Content-Type", "text/html; charset=utf-8")]
 
